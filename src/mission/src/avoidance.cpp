@@ -17,6 +17,7 @@ void printf_avoidance()//打印函数
     cout << "Minimun_distance : "<<endl;
     cout << "Distance : " << distance_c << " [m] "<<endl;
     cout << "Angle :    " << angle_c    << " [du] "<<endl;
+    cout << "valid_bin : " << bin_valid  << " / " << BIN_NUM << " [bin] "<<endl;
     cout << "distance_cx :    " << distance_cx    << " [m] "<<endl;
     cout << "distance_cy :    " << distance_cy    << " [m] "<<endl;
     if(flag_collision_avoidance.data == true)
@@ -65,13 +66,14 @@ int main(int argc, char **argv)
 
     ros::init(argc, argv, "avoidance");
     ros::NodeHandle nh;
+    std::string cloud_topic = "/cloud_registered";
 
     // 订阅mavros相关话题
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
     ros::Subscriber local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 10, local_pos_cb);
 
-    //【订阅】Lidar数据
-    ros::Subscriber lidar_sub = nh.subscribe<sensor_msgs::LaserScan>("/scan", 1000, lidar_cb);
+    //三维雷达点云
+    ros::Subscriber cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(cloud_topic, 1, cloud_cb);
     
 
     // 发布无人机多维控制话题
@@ -103,6 +105,11 @@ int main(int argc, char **argv)
 
     nh.param<int>("range_min", range_min, 0);
     nh.param<int>("range_max", range_max, 359);
+
+    //三维点云切片参数
+    nh.param<float>("z_band", z_band, 0.30);
+    nh.param<float>("min_obstacle_range", min_obstacle_range, 0.15);
+    nh.param<float>("max_obstacle_range", max_obstacle_range, 8.0);
 
     nh.param<float>("if_debug", if_debug, 0);
 

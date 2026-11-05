@@ -22,7 +22,7 @@ catkin_make
 source devel/setup.bash
 ```
 
-先启动 MAVROS 和本地定位；`avoidance` 还需要雷达驱动发布 `/scan`。这些任务 launch 只启动任务节点，不启动飞控连接、定位或雷达。
+先启动 MAVROS 和本地定位；`avoidance` 还需要点云话题 `/cloud_registered`（由 `cloud_register_mapping` 发布）。这些任务 launch 只启动任务节点，不启动飞控连接、定位或雷达处理。
 
 每次选择一个任务运行：
 
@@ -101,23 +101,26 @@ waypoints:
 
 | 参数 | 当前 YAML 值 | 含义 |
 | --- | --- | --- |
-| `target_x` | `1.0` | 目标本地 ENU 坐标 X，单位 m |
+| `target_x` | `6.0` | 目标本地 ENU 坐标 X，单位 m |
 | `target_y` | `0.0` | 目标本地 ENU 坐标 Y，单位 m |
 | `R_outside` | `1.6` | 进入避障的外圈半径，单位 m |
-| `R_inside` | `0.8` | 加强避障的内圈半径，单位 m |
-| `p_xy` | `0.5` | 目标追踪位置比例系数 |
-| `vel_track_max` | `0.25` | 追踪速度分量限幅，单位 m/s |
-| `p_R` | `0.6` | 外圈避障比例系数 |
-| `p_r` | `1.2` | 内圈避障比例系数 |
+| `R_inside` | `0.9` | 加强避障的内圈半径，单位 m |
+| `p_xy` | `0.7` | 目标追踪位置比例系数 |
+| `vel_track_max` | `0.30` | 追踪速度分量限幅，单位 m/s |
+| `p_R` | `0.45` | 外圈避障比例系数 |
+| `p_r` | `1.5` | 内圈避障比例系数 |
 | `vel_collision_max` | `0.30` | 避障速度分量限幅，单位 m/s；随后还会加入随机扰动 |
 | `vel_sp_max` | `0.30` | 最终 XY 速度分量限幅，单位 m/s |
-| `range_min` | `0` | 雷达处理起始角度，单位度 |
-| `range_max` | `359` | 雷达处理结束角度，单位度 |
+| `range_min` | `0` | 参与避障搜索的起始 bin 下标，单位度 |
+| `range_max` | `359` | 参与避障搜索的结束 bin 下标，单位度 |
+| `z_band` | `0.10` | 水平切片厚度：只取与机体高度差在该值以内的点，单位 m |
+| `min_obstacle_range` | `0.15` | 小于该水平距离的点丢弃（自机噪声），单位 m |
+| `max_obstacle_range` | `8.0` | 大于该水平距离的点丢弃，单位 m |
 | `if_debug` | `1` | 自动请求 OFFBOARD；源码回退值为 `0` |
 
-除 `if_debug` 外，上述 YAML 值均与源码读取时的默认值一致。目标坐标直接与本地里程计比较，不叠加初始位置。避障阶段使用 XY 速度控制及 Z 位置控制，Z 目标直接设置为 `ALTITUDE = 1.4`；它与起飞阶段叠加初始 Z 的处理有所不同。
+其中 `target_x`、`R_inside`、`p_xy`、`vel_track_max`、`p_R`、`p_r`、`z_band`、`if_debug` 的 YAML 值与源码回退值不同（源码回退值依次为 `1.0`、`0.8`、`0.5`、`0.25`、`0.6`、`1.2`、`0.30`、`0`），其余参数两者一致；YAML 未加载时会退回这些源码值。目标坐标直接与本地里程计比较，不叠加初始位置。避障阶段使用 XY 速度控制及 Z 位置控制，Z 目标直接设置为 `ALTITUDE = 1.4`；它与起飞阶段叠加初始 Z 的处理有所不同。
 
-雷达处理当前按 720 个采样点、每度两个采样点及固定半圈移位实现。接入不同点数或角度排列的 `/scan` 前，需要修改索引处理；`range_min`、`range_max` 不能替代扫描格式适配。
+点云处理当前按以下流程实现：只取与机体当前高度相差不超过 `z_band` 的水平切片，把每个点换算成相对机体的水平距离与机体系角度，按 1 度一个分进 360 个 bin，每个 bin 只保留最近距离；再在这些 bin 里找最近障碍物。`range_min`、`range_max` 是参与搜索的 **bin 下标（角度，单位度）**，不是雷达量程。
 
 ## 话题与服务
 
@@ -125,7 +128,7 @@ waypoints:
 | --- | --- |
 | `mavros/state` | 订阅飞控连接、模式和解锁状态 |
 | `/mavros/local_position/odom` | 订阅本地位置与姿态 |
-| `/scan` | avoidance 订阅 `sensor_msgs/LaserScan` |
+| `/cloud_registered` | avoidance 订阅 `sensor_msgs/PointCloud2`（世界系 ENU 点云） |
 | `/mavros/setpoint_raw/local` | 发布 `mavros_msgs/PositionTarget` |
 | `mavros/set_mode` | 请求 OFFBOARD 模式 |
 | `mavros/cmd/arming` | 请求解锁 |
