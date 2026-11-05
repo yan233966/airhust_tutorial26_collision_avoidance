@@ -113,7 +113,7 @@ void collision_avoidance(float target_x,float target_y)
         //大幅度抑制移动速度
         
 
-        //安全性检查 7：距离为 0 时"障碍物在哪个方向"没有意义，跳过除法，避免 0/0 = nan
+        //距离为 0 时"障碍物在哪个方向"没有意义，跳过除法，避免 0/0 = nan
         if (distance_c > 0.01f)
         {
             vel_collision[0] = vel_collision[0] - F_c * distance_cx / distance_c;
